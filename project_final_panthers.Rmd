@@ -10,7 +10,6 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-library(ggrepel)
 library(sf)
 library(leaflet)
 library(htmltools)
@@ -284,6 +283,6 @@ The most problematic part is that there are still insufficient data for a lot of
 
 ## References
 
-* [](https://www.iucnredlist.org/)
-* [](https://www.iucnredlist.org/statistics)
-* [](https://www.naturalearthdata.com/downloads/110m-cultural-vectors/)
+* https://www.iucnredlist.org/
+* https://www.iucnredlist.org/statistics
+* https://www.naturalearthdata.com/downloads/110m-cultural-vectors/
