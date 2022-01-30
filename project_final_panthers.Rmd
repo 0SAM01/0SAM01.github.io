@@ -1,0 +1,289 @@
+---
+title: "An Analysis on Endangered and Extinct Fauna and Flora"
+author: "Panthers"
+date: "29/01/2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggrepel)
+library(sf)
+library(leaflet)
+library(htmltools)
+```
+
+
+## Team Members
+
+Serdar Eren Mersin - 090180362
+
+## Addressed Social Problem and the Project Goal
+
+The goal of this project is to show endangerment and extinction increase and general endangerement and extinction data using visualization tools.
+
+## Project Data
+
+The data is provided by International Union for Conservation of Nature's Red List of Threatened Species (IUCN for short).
+
+* [Estimated Number, Described and Threatened Species by Major Group of Organisms and Numbers of Threatened Species Grouped by Year](https://www.iucnredlist.org/resources/summary-statistics)
+* [Numbers of Species in each IUCN Red List by kingdom and class (table 3)](https://www.iucnredlist.org/statistics)
+* [Threatened Sprecies Grouped by Country (table 5)](https://www.iucnredlist.org/statistics)
+
+## Project Description
+
+Before looking at the work on the data, the first thing to do is to describe how IUCN describes 
+animals. These are the scales:
+
+1. Data Deficient (DD)
+  + These animals or plants do not have enough information to asses if it is endangered or not.
+  + The species can be well studied, it just does not have appropriate data for endangerement risk     evaluation.
+  
+2. Least Concern (LC)
+  + This category is for the animals or plants that do not fit the other categories below.
+
+3. Near Threatened (NT)
+  + This category is for the animals or plants that do not fit the other categories below.
+  + Unlike Least Concern however, this category means that the animal or plant that listed is close     to being endangered.
+  
+4. Vulnerable (VU), Endangered (EN) and Critically Endangered (CR)
+  + These animals or plants are in the high risk of extinction, with Vulnerable being the least        severe and Critically Endangered being the most severe.
+
+5. Extinct in the Wild (EW)
+  + These animals or plants are now not alive in the wild anymore, and only living in captivity or     in cultivation.
+6. Extinct (EX)
+  + These animals or plants are known that there are certainly no individual alive anymore.
+  
+7. Possibly Extinct (CR(PE)) and Possibly Extinct in the Wild (CR(PEW))
+  + These animals or plants have a very high chance that they are extinct or extinct in the wild.
+  + This data is calculated separately in the plots.
+
+Another thing to note about the data is that IUCN does their endangerment calculation by dividing the count of endangered animals by the count of animals evaluated by them. This approach was used in this report as well. IUCN calculates calculates three percentages for endangerment; lower, best and higher. Lower does not take the data deficient species in its calculation, best estimate adds half of it into account, and higher takes all of the data deficient species. In this paper, the percent was calculated using the lower percent rule.
+  
+## Preliminary Results and Codes
+
+The first step is to do some cleaning in the data.
+
+```{r , warning=FALSE, message = FALSE}
+yearly_threat_table <- read_csv("data/Number of Threatened Species Yearly.csv", na = c("-"), show_col_types = FALSE)
+relation_table <- read_csv("data/Number of Species Evaluated in Relation to Overall Number of Described Species.csv", show_col_types = FALSE)
+detailed_table <- read_csv("data/Table 3  Species by kingdom and class - show all.csv", show_col_types = FALSE) %>%
+  select(-c("Subtotal (EX+EW+ CR(PE)+CR(PEW))", "Subtotal (threatened spp.)", "LR/cd", "Subtotal (EX+EW)", "Total")) %>%
+  rename("LC" = "LC or LR/lc", "NT" = "NT or LR/nt", "PE" = "CR(PE)", "PEW" = "CR(PEW)")
+
+# Pick the necessary data
+total_nums <- relation_table %>%
+  select(c("Animal Type", "Estimated Number OF Described Species", "Number of species evaluated by 2021 (IUCN Red List version 2021-2)"))
+```
+
+The next step is to visualize the data. The visualization is categorized by the classes.
+
+```{r, warning=FALSE, message = FALSE}
+yearly_threat_table %>%
+  select(c("Year", "Assesment Type", "Mammals")) %>%
+  filter(grepl("Total threatened", yearly_threat_table$`Assesment Type`)) %>%
+  ggplot(aes(x = Year, y = Mammals, group = 1)) + geom_line() + geom_point() + labs(title = "Change of Endangered Mammals Through the Years") + theme(plot.title = element_text(hjust = 0.4), axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+```
+
+```{r, warning=FALSE, message = FALSE}
+total_nums %>%
+  filter(grepl("Mammals", total_nums$`Animal Type`)) -> temp
+
+detailed_table %>%
+  filter(grepl("MAMMALIA", detailed_table$Name)) %>%
+  add_column("Species Count" = temp[[2]]) %>%
+  add_column("Evaluated Count" = temp[[3]]) %>%
+  select(-c("Name")) %>%
+  mutate(Endangered = CR + EN + VU, Extinct = PEW + PE + EX + EW) %>%
+  select(c("Endangered", "Extinct", "Evaluated Count", "Species Count", "LC", "DD", "NT")) %>%
+  gather(Stats, Amount) -> mammal_data
+  
+  mammal_data %>%
+    add_row(Stats = "Extinction Rate(percent)", Amount = mammal_data$Amount[2]/ mammal_data$Amount[3] * 100) %>%
+    add_row(Stats = "Endangerement Rate(percent)", Amount = mammal_data$Amount[1] / mammal_data$Amount[3]* 100) %>%
+  knitr::kable(caption = "Detailed Endangerment and Extinction Info for Mammals - 2021")
+```
+
+```{r, warning=FALSE, message = FALSE}
+ggplot(mammal_data, aes(x = reorder(Stats, -Amount), y = Amount)) + geom_bar(stat = "identity") + labs(title = "Threatened and Endangered Mammals Compared to the Described Mammal Count", x = "Type", y = "Species Count") + theme(plot.title = element_text(hjust = 1.3))
+```
+
+```{r, warning=FALSE, echo=FALSE, message = FALSE}
+yearly_threat_table %>%
+  select(c("Year", "Assesment Type", "Amphibians")) %>%
+  filter(grepl("Total threatened", yearly_threat_table$`Assesment Type`)) %>%
+  ggplot(aes(x = Year, y = Amphibians, group = 1)) + geom_line() + geom_point() + labs(title = "Change of Endangered Amphibians Through the Years") + theme(plot.title = element_text(hjust = 0.4), axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+```
+
+```{r, warning=FALSE, echo=FALSE, message = FALSE}
+total_nums %>%
+  filter(grepl("Amphibians", total_nums$`Animal Type`)) -> temp
+
+detailed_table %>%
+  filter(grepl("AMPHIBIA", detailed_table$Name)) %>%
+  add_column("Species Count" = temp[[2]]) %>%
+  add_column("Evaluated Count" = temp[[3]]) %>%
+  select(-c("Name")) %>%
+  mutate(Endangered = CR + EN + VU, Extinct = PEW + PE + EX + EW) %>%
+  select(c("Endangered", "Extinct", "Evaluated Count", "Species Count", "LC", "DD", "NT")) %>%
+  gather(Stats, Amount) -> amphibian_data
+  
+  amphibian_data %>%
+    add_row(Stats = "Extinction Rate(percent)", Amount = amphibian_data$Amount[2]/ amphibian_data$Amount[3] * 100) %>%
+    add_row(Stats = "Endangerement Rate(percent)", Amount = amphibian_data$Amount[1] / amphibian_data$Amount[3] * 100) %>%
+  knitr::kable(caption = "Detailed Endangerment and Extinction Info for Amphibians - 2021")
+```
+
+```{r, warning=FALSE, echo=FALSE, message = FALSE}
+ggplot(amphibian_data, aes(x = reorder(Stats, -Amount), y = Amount)) + geom_bar(stat = "identity") + labs(title = "Threatened and Endangered Amphibians Compared to the Described Amphibian Count", x = "Type", y = "Species Count") + theme(plot.title = element_text(hjust = 0.9))
+```
+
+```{r, warning=FALSE, echo=FALSE, message = FALSE}
+yearly_threat_table %>%
+  select(c("Year", "Assesment Type", "Birds")) %>%
+  filter(grepl("Total threatened", yearly_threat_table$`Assesment Type`)) %>%
+  ggplot(aes(x = Year, y = Birds, group = 1)) + geom_line() + geom_point() + labs(title = "Change of Endangered Birds Through the Years") + theme(plot.title = element_text(hjust = 0.4), axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+```
+
+```{r, warning=FALSE, echo=FALSE, message = FALSE}
+total_nums %>%
+  filter(grepl("Birds", total_nums$`Animal Type`)) -> temp
+
+detailed_table %>%
+  filter(grepl("AVES", detailed_table$Name)) %>%
+  add_column("Species Count" = temp[[2]]) %>%
+  add_column("Evaluated Count" = temp[[3]]) %>%
+  select(-c("Name")) %>%
+  mutate(Endangered = CR + EN + VU, Extinct = PEW + PE + EX + EW) %>%
+  select(c("Endangered", "Extinct", "Evaluated Count", "Species Count", "LC", "DD", "NT")) %>%
+  gather(Stats, Amount) -> bird_data
+  
+  bird_data %>%
+    add_row(Stats = "Extinction Rate(percent)", Amount = bird_data$Amount[2]/ bird_data$Amount[3] * 100) %>%
+    add_row(Stats = "Endangerement Rate(percent)", Amount = bird_data$Amount[1] / bird_data$Amount[3] * 100) %>%
+  knitr::kable(caption = "Detailed Endangerment and Extinction Info for Birds - 2021")
+```
+
+```{r, warning=FALSE, echo=FALSE, message = FALSE}
+ggplot(bird_data, aes(x = reorder(Stats, -Amount), y = Amount)) + geom_bar(stat = "identity") + labs(title = "Threatened and Endangered Birds Compared to the Described Bird Count", x = "Type", y = "Species Count") + theme(plot.title = element_text(hjust = -0.1))
+```
+
+```{r, warning=FALSE, echo=FALSE, message = FALSE}
+total_nums %>%
+  filter(grepl("Gymnosperms", total_nums$`Animal Type`)) -> temp
+
+detailed_table %>%
+  filter(grepl("PINOPSIDA|CYCADOPSIDA|GINKGOOPSIDA|GNETOPSIDA", detailed_table$Name)) -> gymno_data
+
+gymno_data %>%
+  summarise(across(is.numeric, ~ sum(., is.na(.), 0))) %>%
+  add_column(Name = "Gymnosperms", .before = "EX") -> gymno_data
+```
+
+
+```{r, warning=FALSE, echo=FALSE, message = FALSE}
+yearly_threat_table %>%
+  select(c("Year", "Assesment Type", "Gymnosperms")) %>%
+  filter(grepl("Total threatened", yearly_threat_table$`Assesment Type`)) %>%
+  ggplot(aes(x = Year, y = Gymnosperms, group = 1)) + geom_line() + geom_point() + labs(title = "Change of Endangered Gymnosperms Through the Years") + theme(plot.title = element_text(hjust = 0.4), axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5))
+```
+
+```{r, warning=FALSE, echo=FALSE, message = FALSE}
+gymno_data %>%
+  add_column("Species Count" = temp[[2]]) %>%
+  add_column("Evaluated Count" = temp[[3]]) %>%
+  select(-c("Name")) %>%
+  mutate(Endangered = CR + EN + VU, Extinct = PEW + PE + EX + EW) %>%
+  select(c("Endangered", "Extinct", "Evaluated Count", "Species Count", "LC", "DD", "NT")) %>%
+  gather(Stats, Amount) -> gymno_data
+
+gymno_data %>%
+    add_row(Stats = "Extinction Rate(percent)", Amount = gymno_data$Amount[2]/ gymno_data$Amount[3] * 100) %>%
+    add_row(Stats = "Endangerement Rate(percent)", Amount = gymno_data$Amount[1] / gymno_data$Amount[3] * 100) %>%
+  knitr::kable(caption = "Detailed Endangerment and Extinction Info for Gymnosperms - 2021")
+```
+
+```{r, warning=FALSE, echo=FALSE, message = FALSE}
+ggplot(gymno_data, aes(x = reorder(Stats, -Amount), y = Amount)) + geom_bar(stat = "identity") + labs(title = "Threatened and Endangered Birds Compared to the Described Bird Count", x = "Type", y = "Species Count") + theme(plot.title = element_text(hjust = -0.1))
+```
+<br>Note that endangered is equal to CR + VU + EN and Extinct is equal to EW + EX + CR(PEW) + CR(PE).
+
+Last thing to showcase is to create a map that shows all extinction values by countries.
+
+```{r, echo = FALSE, message=FALSE}
+earth <- st_read("data/map/ne_110m_admin_0_countries.shp", quiet = TRUE)
+
+earth %>%
+  rename("Name" = "SUBUNIT") %>%
+  select(-c("NAME", "featurecla", "scalerank"))-> earth
+extinct_country <- read_csv("data/Table 5  Threatened species in each major group by country - show all.csv", show_col_types = FALSE)
+
+earth <- merge(earth, extinct_country, by = "Name", all.x = TRUE)
+
+earth_map <- st_transform(earth, crs = 4326)
+
+labels <- sprintf("<b>%s</b><br><b>Threatened Mammals</b> : %d<br> <b>Threatened Birds</b> : %d <br><b>Threatened Reptiles</b> : %d <br><b>Threatened Amphibians</b> : %d <br><b>Threatened Fishes</b> : %d<br><b>Threatened Molluscs</b> : %d<br><b>Threathened Plants</b> : %d",earth$Name,  earth$Mammals, earth$Birds, earth$`Reptiles*`, earth$Amphibians, earth$`Fishes*`, earth$`Molluscs*`, earth$Plants)
+
+earth_map %>%
+  leaflet() %>%
+  addPolygons(stroke = FALSE, label = lapply(labels, htmltools::HTML)) %>%
+  addControl("Endangered Animals by Country", position = "topright")
+```
+
+## Challanges
+
+* Non-matching spatial data and country data
+  + Some names in the spatial data did not match with the names in the country endangerement data, for example, South Korea was named South Korea in the spatial data, while it was named Republic of Korea in the endangerment data. This was solved by checking missing names in the endangerment data, then changing them to appropriate names.
+  + The endangerment data is way longer than the spatial data. This was solved by simply ignoring extra data in the endangerment data.
+  
+* Data not having enough info
+  + Let's look at the insect data for endangerment and extinction
+
+```{r, warning=FALSE, echo=FALSE, message = FALSE}
+total_nums %>%
+  filter(grepl("Insects", total_nums$`Animal Type`)) -> temp
+
+detailed_table %>%
+  filter(grepl("INSECTA", detailed_table$Name)) %>%
+  add_column("Spec. Count" = temp[[2]]) %>%
+  select(-c("Name")) %>%
+  mutate(Endangered = CR + EN + VU, Extinct = PEW + PE + EX + EW) %>%
+  select(c("Endangered", "Extinct", "Spec. Count", "LC", "DD", "NT")) %>%
+  gather(Stats, Amount) -> insect_data
+  
+  insect_data %>%
+    add_row(Stats = "Extinction Rate(percent)", Amount = insect_data$Amount[2]/ insect_data$Amount[3] * 100) %>%
+    add_row(Stats = "Endangerement Rate(percent)", Amount = insect_data$Amount[1] / insect_data$Amount[3]* 100) %>%
+  knitr::kable()
+```
+
+There are not enough data to go with, so such data has not been considered in this project.
+
+* Gymnosperm Data
+  + The gymnosperms are divided by four sub-classes : Pinopsida, Cycadopsida, Ginkgoopsida and Gnetopsida. Summing these columns were a bit of a challenge.
+  
+## Conclusion
+
+A table that summarizes important finds : 
+
+```{r, warning=FALSE, echo=FALSE, message = FALSE}
+merged_table <- tibble(mammal_data$Stats, mammal_data$Amount, amphibian_data$Amount, bird_data$Amount, gymno_data$Amount)
+
+knitr::kable(merged_table, col.names = c("Stats", "Mammals", "Amphibians", "Birds", "Gymnosperms"))
+```
+
+
+## Results and Discussion
+
+The point of the project is to show extinction and endangerment values for some animal types and plant types.
+
+The most problematic part is that there are still insufficient data for a lot of classes. IUCN only does calculations when the evaluated species count exceeds 80 percent of the total count of described species. Except the classes in this report and velvet worms, there are still missing data for them.
+
+## References
+
+* [](https://www.iucnredlist.org/)
+* [](https://www.iucnredlist.org/statistics)
+* [](https://www.naturalearthdata.com/downloads/110m-cultural-vectors/)
