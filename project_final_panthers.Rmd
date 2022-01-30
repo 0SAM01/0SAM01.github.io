@@ -206,7 +206,7 @@ gymno_data %>%
 ```
 
 ```{r, warning=FALSE, echo=FALSE, message = FALSE}
-ggplot(gymno_data, aes(x = reorder(Stats, -Amount), y = Amount)) + geom_bar(stat = "identity") + labs(title = "Threatened and Endangered Gymnosperms Compared to the Described Gymnosperm Count", x = "Type", y = "Species Count") + theme(plot.title = element_text(hjust = -0.1))
+ggplot(gymno_data, aes(x = reorder(Stats, -Amount), y = Amount)) + geom_bar(stat = "identity") + labs(title = "Threatened and Endangered Gymnosperms Compared to the Described Count", x = "Type", y = "Species Count") + theme(plot.title = element_text(hjust = -1))
 ```
 <br>Note that endangered is equal to CR + VU + EN and Extinct is equal to EW + EX + CR(PEW) + CR(PE).
 
